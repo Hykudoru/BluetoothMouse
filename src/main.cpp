@@ -11,11 +11,28 @@
 BleMouse bleMouse;
 #include <math.h>
 
+const float EPSILON = 0.00001;
+bool EqZero(float val) 
+{
+  if (val < EPSILON && val > -EPSILON)
+  {
+    return true;
+  }
+
+  return false;
+}
+
 #if defined(ESP32)
   const int BAUD_RATE = 115200;
+  const uint16_t ADC_RESOLUTION = 4095; // 0 - 4095
   #define BUTTON_A 15
   #define BUTTON_B 32
   #define BUTTON_C 14
+  #define BUTTON_1 27
+  #define BUTTON_2 4
+  #define TOUCH_AWAKE_SLEEP_PIN 33
+  #define POTENTIOMETER_1 39 //0b100111// A3 (39)
+  #define POTENTIOMETER_2 36 //0b100100// A4 (36)
 #endif
 #if defined(__AVR_ATmega32U4__)
   const int BAUD_RATE = 9600;
@@ -33,31 +50,34 @@ BleMouse bleMouse;
 
   #define LED_GREEN 8
 #endif
-
-
 //pfunc can be reasigned at runtime to change the desired procedure invoked inside the default loop function.
 typedef void (*pointerFunction)(void);
 pointerFunction ptrMode;
 Adafruit_SSD1306 oled = Adafruit_SSD1306(128, 32, &Wire);
-
 const int LEFT_JOYSTICK_MUX_PORT = 0;
 const int RIGHT_JOYSTICK_MUX_PORT = 7;
 MuxJoystick leftJoystick(LEFT_JOYSTICK_MUX_PORT, false, false);
 MuxJoystick rightJoystick(RIGHT_JOYSTICK_MUX_PORT, false, false);
 
-const float EPSILON = 0.00001;
-bool EqZero(float val) 
-{
-  if (val < EPSILON && val > -EPSILON)
-  {
-    return true;
-  }
+int maxMouseMoveSpeed = 20;
+int maxMouseScrollSpeed = 1;
+bool mouseActive = true;
 
-  return false;
+void OnTouch()
+{
+  static int touchCount = 0;
+  Serial.println("Touch "+touchCount);
 }
 
-
-
+void ToggleSleepMode()
+{
+  static bool sleepState = false;
+  sleepState = !sleepState;
+  if (sleepState) {
+    Serial.println("Going to Sleep...");
+  }
+  Serial.println("Awake!");
+}
 void setup() 
 { 
   // put your setup code here, to run once:
@@ -72,7 +92,8 @@ void setup()
   pinMode(BUTTON_A, INPUT_PULLUP);
   pinMode(BUTTON_B, INPUT_PULLUP);
   pinMode(BUTTON_C, INPUT_PULLUP);
-
+  //touchAttachInterrupt(TOUCH_AWAKE_SLEEP_PIN, OnTouch, 1);
+  //touchAttachInterrupt(TOUCH_AWAKE_SLEEP_PIN, ToggleSleepMode, 1);
   leftJoystick.Start();
   rightJoystick.Start();
   //bleKeyboard.begin();
@@ -81,15 +102,14 @@ void setup()
   oled.display();
  }
 
-int maxMouseMoveSpeed = 20;
-int maxMouseScrollSpeed = 1;
-bool mouseActive = true;
-
 void loop() 
-{
+{ 
   oled.clearDisplay();
   oled.setCursor(0, 0);
-
+  
+  uint16_t touch = touchRead(TOUCH_AWAKE_SLEEP_PIN);
+  Serial.println("Touch: "+touch);
+  
   Vector3<float> mouse;
   Vector3<float> mouse2;
   Vector3<float> scroll;
