@@ -12,3 +12,5 @@ int clamp(int &val, int min, int max);
 float clamp(float &val, float min, float max);
 
 void print(Vector3<float> vec, char header[]);
+
+void Pause(char resumeKey = 'p');

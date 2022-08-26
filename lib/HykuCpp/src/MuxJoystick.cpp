@@ -6,20 +6,66 @@
 #include <Adafruit_SSD1306.h>
 #include <SparkFun_Qwiic_Joystick_Arduino_Library.h>
 #include <SparkFun_I2C_Mux_Arduino_Library.h>
+#include <Functions.h>
 #include <Vector.h>
 #include <MuxJoystick.h>
 
 QWIICMUX mux;
 JOYSTICK rawJoystick;
+int joystickCount;
 
 void MuxJoystick::Start()
 {
   //----- MUX joystick setup -------
-  rawJoystick.begin();
+  bool jsConnected = rawJoystick.begin();//(Wire, 0x20);
   Wire.begin();
-  mux.begin();
-  //force read for potentially bad init readings
-  Read();
+  bool muxBegin = mux.begin();
+
+  // if (!jsConnected) {
+  //   joystickCount = 0;
+  //   Serial.println("WARNING: No joysticks connected!");
+  // }
+  // else if (!mux.isConnected()) {
+  //   joystickCount = 1;
+  //   Serial.println("Only one joystick connected.");
+  // } 
+  // else if (!mux.enablePort(muxPort)) {
+  //   Serial.println(String("WARNING: No Joystick on Mux port ") + muxPort + " enabled.");
+  // } else {
+  //   joystickCount++;
+  //   Serial.println(String("Joystick on port ") +muxPort+" enabled.");
+  // }
+
+  Serial.println(String("---------")+muxPort+"----------");
+  
+  if (!jsConnected) {
+    Serial.println("jsConnected = false");
+  } else {
+    Serial.println("jsConnected = true");
+  }
+
+  if (!muxBegin) {
+    Serial.println("muxBegin == false");
+  } else {
+    Serial.println("muxBegin == true");
+  }
+
+  if (!mux.isConnected()) {
+    Serial.println("mux.isConnected() == false");
+  } else {
+    Serial.println("mux.isConnected() == true");
+  }
+
+  if (!mux.enablePort(muxPort)) {
+    Serial.println(String("mux.enablePort(")+muxPort+")  == false");
+  } else {
+    joystickCount++;
+    Serial.println(String("mux.enablePort(")+muxPort+")  == true");
+  }
+  
+  Serial.println("-------------------");
+  
+  Read();//force read for potentially bad init readings                                                       
 }
 
 Vector3<float> MuxJoystick::Read(int distanceRadius)
@@ -27,35 +73,29 @@ Vector3<float> MuxJoystick::Read(int distanceRadius)
   static const int joystickADCResolution = 1024;
   static int rawMidpoint = joystickADCResolution / 2;
   static int rawAbsErrorOffset = 15;
-  static unsigned long t = 0;
   Vector3<float> vec3;
 
-  // Check frame to determine if joystick values are still current; 
-  if (t == millis())
-  {
-    return vec3;
-  }
-
-  // New frame
-  t = millis();
-
-  mux.enablePort(muxPort);
+  // // return zero vector incase disconnected since values may still read false readings.
+  // if (mux.isConnected() && !mux.enablePort(muxPort)) 
+  // {
+  //   vec3 = Vector3<float>(0,0,0);
+  //   return vec3;
+  // }
 
   uint16_t rawX = rawJoystick.getHorizontal();// 0 - 1023
   uint16_t rawY = rawJoystick.getVertical();// 0 - 1023
   
-  // Fix/reverse x axis
+  //------------ Fix reversed rawX axis to match left(-) right(+) standards for cartesian coords. --------------
   if (rawX != rawMidpoint)
   {
     rawX = 1023 - rawX;
   }
 
-  // Map X-axis Range [-100, 100] 
+//================  HORIZONTAL ===============
   if (rawX < (rawMidpoint - rawAbsErrorOffset))
   {
     // Left
     vec2.x = -map(rawX, 0, (rawMidpoint - rawAbsErrorOffset), distanceRadius, 0);
-
   }
   else if (rawX > (rawMidpoint + rawAbsErrorOffset))
   {
@@ -66,12 +106,11 @@ Vector3<float> MuxJoystick::Read(int distanceRadius)
     vec2.x = 0;
   }
 
-  // Map Y-axis Range [-100, 100] 
+//================  VERTICAL ===============
   if (rawY < (rawMidpoint - rawAbsErrorOffset))
   {
     // Down
     vec2.y = -map(rawY, 0, (rawMidpoint - rawAbsErrorOffset), distanceRadius, 0);
-
   }
   else if (rawY > (rawMidpoint + rawAbsErrorOffset))
   {
@@ -90,10 +129,10 @@ Vector3<float> MuxJoystick::Read(int distanceRadius)
   {
     vec2.y *= -1.0;
   }
-  
+
   vec3 = vec2;
 
-  //Invert button so that pressed state means 1 = true else 0;
+  //Always inverted so that pressed = 1, else 0;
   isPressed = !rawJoystick.getButton();
   vec3.z = isPressed;
 

@@ -52,3 +52,15 @@ void print(Vector3<float> vec, char header[])
     Serial.print(vec.y); Serial.print(", ");
     Serial.println(vec.z); 
 }
+
+void Pause(char resumeKey) 
+{ 
+  if (Serial.available()) 
+  { 
+    Serial.println("Paused... Press 'p' to resume.");
+    while (Serial.read() != resumeKey) 
+    {
+        delay(2);
+    }
+  }
+}
