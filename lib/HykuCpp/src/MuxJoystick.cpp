@@ -12,10 +12,12 @@
 
 QWIICMUX mux;
 JOYSTICK rawJoystick;
-int joystickCount;
+int joystickCount = 0;
 
 void MuxJoystick::Start()
 {
+  static byte count = 0;
+
   //----- MUX joystick setup -------
   bool jsConnected = rawJoystick.begin();//(Wire, 0x20);
   Wire.begin();
@@ -38,10 +40,16 @@ void MuxJoystick::Start()
 
   Serial.println(String("---------")+muxPort+"----------");
   
-  if (!jsConnected) {
-    Serial.println("jsConnected = false");
-  } else {
+  if (jsConnected) {
+    if (++count == 1) {
+      joystickCount = 1;
+    }
+    else if (mux.enablePort(muxPort)) {
+      joystickCount++;
+    }
     Serial.println("jsConnected = true");
+  } else {
+    Serial.println("jsConnected = false");
   }
 
   if (!muxBegin) {
@@ -50,21 +58,27 @@ void MuxJoystick::Start()
     Serial.println("muxBegin == true");
   }
 
-  if (!mux.isConnected()) {
-    Serial.println("mux.isConnected() == false");
-  } else {
-    Serial.println("mux.isConnected() == true");
-  }
+  mux.setPort(muxPort);
+  mux.enablePort(muxPort);
+  Serial.println(mux.getPort());
 
   if (!mux.enablePort(muxPort)) {
     Serial.println(String("mux.enablePort(")+muxPort+")  == false");
   } else {
-    joystickCount++;
     Serial.println(String("mux.enablePort(")+muxPort+")  == true");
   }
+
+  if (!mux.isConnected()) {
+    Serial.println("mux.isConnected() == false");
+  } else {
+    joystickCount++;
+    Serial.println("mux.isConnected() == true");
+  }
   
+  Serial.println(String("Joysticks: ")+joystickCount);
   Serial.println("-------------------");
-  
+  mux.disablePort(muxPort);
+
   Read();//force read for potentially bad init readings                                                       
 }
 
@@ -82,6 +96,8 @@ Vector3<float> MuxJoystick::Read(int distanceRadius)
   //   return vec3;
   // }
 
+  mux.enablePort(muxPort);
+
   uint16_t rawX = rawJoystick.getHorizontal();// 0 - 1023
   uint16_t rawY = rawJoystick.getVertical();// 0 - 1023
   
@@ -91,7 +107,9 @@ Vector3<float> MuxJoystick::Read(int distanceRadius)
     rawX = 1023 - rawX;
   }
 
-//================  HORIZONTAL ===============
+  // ==================================
+  //            HORIZONTAL
+  // ==================================
   if (rawX < (rawMidpoint - rawAbsErrorOffset))
   {
     // Left
@@ -106,7 +124,9 @@ Vector3<float> MuxJoystick::Read(int distanceRadius)
     vec2.x = 0;
   }
 
-//================  VERTICAL ===============
+  // ==================================
+  //              VERTICAL
+  // ==================================
   if (rawY < (rawMidpoint - rawAbsErrorOffset))
   {
     // Down

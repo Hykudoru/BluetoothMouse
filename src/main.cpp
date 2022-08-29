@@ -75,6 +75,9 @@ bool righthanded = true;
 //   sleep
 // }
 
+// ===========================================================
+//                           SETUP    
+// ===========================================================
 void setup() 
 { 
   // put your setup code here, to run once:
@@ -99,12 +102,17 @@ void setup()
   oled.display();
  }
 
+// ===========================================================
+//                        MAIN PROGRAM       
+// ===========================================================
 void loop() 
 {
   oled.clearDisplay();
   oled.setCursor(0, 0);
 
-  // SLEEP TIMER
+  // ==================================
+  //           SLEEP TIMER
+  // ==================================
   static ulong WAIT_SLEEP_MILLISEC = 10UL * 1000UL;
   static ulong lastTimeIdle = millis();
   ulong elapsedTime = millis() - lastTimeIdle;
@@ -114,31 +122,40 @@ void loop()
     //Sleep();
   }
 
-  // --------Code below will not run during sleep mode.--------
+  // -------------------Code below will not run during sleep mode.-------------------------
 
+  // ==================================
+  //           TOUCH SENSORS
+  // ==================================
   // uint16_t touch33 = touchRead(TOUCH_PIN_TOGGLE_WAKE_SLEEP);
   // Serial.println(touch33);
-  
-  //long pointerSpeedMultiplier = map(analogRead(POT_SENSOR_PIN), 0, 4096, 1, maxMouseMoveSpeed);
 
-  if (mouseActive) 
+  // long pointerSpeedMultiplier = map(analogRead(POT_SENSOR_PIN), 0, 4096, 1, maxMouseMoveSpeed);
+
+   // =================================
+   //               MOUSE  
+   // =================================
+  if (mouseActive && joystickCount > 0) 
   { 
     Vector3<float> mouse = leftJoystick.Read();
     Vector3<float> mouse2 = Vector3<float>(0,0,0);
     Vector3<float> scroll = Vector3<float>(0,0,0);
 
-    bool dualJoysticks = joystickCount > 1;
-    if (dualJoysticks) {
+    // DUAL JOYSTICK MOUSE
+    if (joystickCount > 1) {
       mouse2 = rightJoystick.Read();
-    } else {
+    }
+    else 
+    {
+      // INDEX FINGER MOUSE 
       // Reverse x and y axis single handed index finger joystick
       Vector3<float> tmp = mouse;
       if (righthanded) {
-        // RIGHT-HAND INDEX FINGER
+        // RIGHT-HAND 
         mouse.x = -tmp.y;
         mouse.y = tmp.x;
       } else { 
-        // LEFT-HAND INDEX FINGER
+        // LEFT-HAND
         mouse.x = tmp.y;
         mouse.y = -tmp.x;
       }
@@ -175,12 +192,11 @@ void loop()
       {
         bleMouse.click(MOUSE_LEFT);
         delay(100);
-
         lastTimeIdle = millis();
       }
     }
   }
 
   oled.display();
-  delay(1);
+  delay(2);
 }
