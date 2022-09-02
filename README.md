@@ -1,4 +1,4 @@
-# BluetoothMouse
+# Bluetooth Single/Dual Joystick Mouse
 A bluetooth mouse for PC and Android. This was a side project I started in order to clear my mind. This controller originated from a drone project still currently in development during the time of writing this.
 
 ## Dual Joystick Mouse Controls
