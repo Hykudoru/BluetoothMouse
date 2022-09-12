@@ -37,7 +37,9 @@ Adafruit_SSD1306 oled = Adafruit_SSD1306(128, 32, &Wire);
   #define BUTTON_A 15
   #define BUTTON_B 32
   #define BUTTON_C 14
- 
+  const int POT_SENSOR_PIN_GPIO_39 = 39;
+  const int TOUCH_PIN_GPIO_33 = 33;
+  const int TOUCH_PIN_GPIO_27 = 27;
 #endif
 
 #if defined(__AVR_ATmega32U4__)
@@ -45,43 +47,69 @@ Adafruit_SSD1306 oled = Adafruit_SSD1306(128, 32, &Wire);
   #define BUTTON_A 9
   #define BUTTON_B 6
   #define BUTTON_C 5
-  #define BUTTON_D 12C 
-  #define BUTTON_MOUSE_LEFT 0xA0
-  #define BUTTON_MOUSE_RIGHT 0xA1
-  #define BUTTON_SWAP_JOYSTICKS 0xA2
-  
-  #define ANALOG_PIN_3 0xA3
-  #define ANALOG_PIN_4 0xA4
-  #define ANALOG_PIN_5 0xA5
-
-  #define LED_GREEN 8
 #endif
-const int POT_SENSOR_PIN = 39;
-const int TOUCH_PIN_TOGGLE_WAKE_SLEEP = 33;
+
 const int LEFT_JOYSTICK_MUX_PORT = 0;
 const int RIGHT_JOYSTICK_MUX_PORT = 7;
 extern int joystickCount;
-MuxJoystick leftJoystick(LEFT_JOYSTICK_MUX_PORT, true, true);
-MuxJoystick rightJoystick(RIGHT_JOYSTICK_MUX_PORT, true, true);
+MuxJoystick leftJoystick(LEFT_JOYSTICK_MUX_PORT);
+MuxJoystick rightJoystick(RIGHT_JOYSTICK_MUX_PORT);
 int maxMouseMoveSpeed = 10;
 int maxMouseScrollSpeed = 1;
 bool mouseActive = true;
 bool righthanded = true;
 
+// Max RTC Memory = 8kb
+RTC_DATA_ATTR int wakeCount = 0;
+RTC_DATA_ATTR int sleepCount = 0;
+RTC_DATA_ATTR bool sleeping = false;
+unsigned long lastTimeTouched = 0;
+unsigned long lastTimeIdle = millis(); 
 
-// void TriggerWakeSleepState()
-// {
-//   esp_sleep_enable_touchpad_wakeup();
-//   sleep
-// }
+// =========================================================================
+//                               SLEEP / AWAKE     
+// =========================================================================
 
-// ===========================================================
-//                           SETUP    
-// ===========================================================
+void Sleep()
+{
+  sleepCount++;
+  sleeping = true;
+  Serial.println("Going to sleep... zzZ");
+  Serial.flush();
+  esp_deep_sleep_start();
+  
+}
+
+void Awake()
+{
+  wakeCount++;
+  sleeping = false;
+  //lastTimeIdle = millis();
+  //lastTimeTouched = millis();
+}
+
+void TriggerWakeSleepState()
+{
+  Serial.println(String("Touch"));
+  if (sleeping) {
+    Awake();
+  }
+  else {
+    Sleep();
+  }
+}
+
+// ================================================================================
+//                                     SETUP       
+// ================================================================================
 void setup() 
 { 
   // put your setup code here, to run once:
   Serial.begin(BAUD_RATE);
+
+  // =========================
+  //       SETUP DISPLAY
+  // =========================
   oled.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   oled.display();//displays initial adafruit image
   oled.clearDisplay();//clears initial adafruit image
@@ -89,65 +117,85 @@ void setup()
   oled.setTextColor(SSD1306_WHITE);
   oled.setCursor(0, 0);
 
+  // =========================
+  //         SETUP IO
+  // =========================
   pinMode(BUTTON_A, INPUT_PULLUP);
   pinMode(BUTTON_B, INPUT_PULLUP);
   pinMode(BUTTON_C, INPUT_PULLUP);
-
-  // touchAttachInterrupt(TOUCH_PIN_TOGGLE_WAKE_SLEEP, TriggerWakeSleepState)
+  // touchAttachInterrupt(TOUCH_PIN_GPIO_33, TriggerWakeSleepState, 20);
+  // esp_sleep_enable_touchpad_wakeup();
   leftJoystick.Start();
   rightJoystick.Start();
+//=============================================================
+// The dual joystick controller uses two sparkfun joysticks 
+// oriented properly according to h and v axis marked on board.
+// If using one joystick on the index finger then the joystick 
+// is inverted AND then rotated. Later in the main loop the 
+// x and y axis are swaped a certain way depending on if 
+// left-handed or right-handed.
+//=============================================================
+  if (joystickCount < 2 ) {
+    leftJoystick.invertH = true;
+    leftJoystick.invertV = true;
+  }
   bleMouse.begin();
   //bleKeyboard.begin();
+
+  lastTimeIdle = millis();
 
   oled.display();
  }
 
-// ===========================================================
-//                        MAIN PROGRAM       
-// ===========================================================
+// =======================================================================================
+//                                    MAIN PROGRAM                            
+// =======================================================================================
 void loop() 
 {
   oled.clearDisplay();
   oled.setCursor(0, 0);
 
-  // ==================================
-  //           SLEEP TIMER
-  // ==================================
-  static ulong WAIT_SLEEP_MILLISEC = 10UL * 1000UL;
-  static ulong lastTimeIdle = millis();
-  ulong elapsedTime = millis() - lastTimeIdle;
+  // =========================
+  //       SLEEP TIMER
+  // =========================
+  static unsigned long WAIT_SLEEP_MILLISEC = 10UL * 1000UL;
+  unsigned long elapsedTime = millis() - lastTimeIdle;
   if (elapsedTime > WAIT_SLEEP_MILLISEC) {
-    Serial.println(("Last time idle: ")+lastTimeIdle);
-    lastTimeIdle = millis();
     //Sleep();
+  } else {
+    //Serial.println("Going to sleep in " + String((WAIT_SLEEP_MILLISEC - elapsedTime)/1000UL) + " seconds");
   }
 
   // -------------------Code below will not run during sleep mode.-------------------------
+  
+  // =========================
+  //          SENSORS
+  // =========================
+  // uint16_t touch33 = touchRead(TOUCH_PIN_GPIO_33);
+  // if (touch33 < 10) {
+  //   Serial.println(touch33);
+  //   // touchAttachInterrupt(TOUCH_PIN_GPIO_33, Awake, 10);
+  //   // esp_sleep_enable_touchpad_wakeup();
+  //   // Sleep();
+  // }
 
-  // ==================================
-  //           TOUCH SENSORS
-  // ==================================
-  // uint16_t touch33 = touchRead(TOUCH_PIN_TOGGLE_WAKE_SLEEP);
-  // Serial.println(touch33);
-
-  // long pointerSpeedMultiplier = map(analogRead(POT_SENSOR_PIN), 0, 4096, 1, maxMouseMoveSpeed);
-
-   // =================================
-   //               MOUSE  
-   // =================================
+  long pointerSpeedMultiplier = map(analogRead(POT_SENSOR_PIN_GPIO_39), 0, 4096, 1, maxMouseMoveSpeed);
+  
+  // =========================
+  //          MOUSE
+  // =========================
   if (mouseActive && joystickCount > 0) 
   { 
     Vector3<float> mouse = leftJoystick.Read();
     Vector3<float> mouse2 = Vector3<float>(0,0,0);
     Vector3<float> scroll = Vector3<float>(0,0,0);
 
-    // DUAL JOYSTICK MOUSE
+    // -------DUAL JOYSTICK MOUSE---------
     if (joystickCount > 1) {
       mouse2 = rightJoystick.Read();
     }
-    else 
+    else // -------INDEX FINGER MOUSE---------
     {
-      // INDEX FINGER MOUSE 
       // Reverse x and y axis single handed index finger joystick
       Vector3<float> tmp = mouse;
       if (righthanded) {
