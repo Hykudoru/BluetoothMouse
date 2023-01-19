@@ -5,14 +5,15 @@
 #include <Adafruit_SSD1306.h>
 
 #include <BleKeyboard.h>
-//BleKeyboard bleKeyboard;
-#include <BleMouse.h>
-BleMouse bleMouse;
+BleKeyboard bleKeyboard;
 #include <math.h>
 // My libs
 #include <Functions.h>
 #include <Vector.h>
 #include <MuxJoystick.h>
+
+// #include <Mouse.h>
+//#include <Keyboard.h>
 
 const float EPSILON = 0.00001;
 bool EqZero(float val) 
@@ -139,13 +140,105 @@ void setup()
     leftJoystick.invertH = true;
     leftJoystick.invertV = true;
   }
-  bleMouse.begin();
-  //bleKeyboard.begin();
+  //bleMouse.begin();
+  bleKeyboard.begin();
 
   lastTimeIdle = millis();
 
   oled.display();
  }
+
+// ==================================
+//         Keyboard Commands
+// ==================================
+
+void WindowsKey()
+{
+  bleKeyboard.press(KEY_LEFT_CTRL);
+  bleKeyboard.press(KEY_ESC);
+  delay(100);
+  bleKeyboard.releaseAll();
+}
+
+const uint8_t KEY_CR = 0X0D; // \r //Fixed
+const uint8_t KEY_LF = 0X0A; // \n
+
+void EnterKey(){
+  bleKeyboard.press(KEY_CR); // carriage return
+  bleKeyboard.press(KEY_LF); // line feed
+  delay(100);
+  bleKeyboard.releaseAll();
+}
+
+void CopyCommand()
+{
+  bleKeyboard.press(KEY_LEFT_CTRL);
+  bleKeyboard.press('c');
+  delay(100);
+  bleKeyboard.releaseAll();
+}
+
+void PasteCommand()
+{
+  bleKeyboard.press(KEY_LEFT_CTRL);
+  bleKeyboard.press('v');
+  delay(100);
+  bleKeyboard.releaseAll();
+} 
+
+void gpeditMacro()
+{
+  const uint8_t str_gpedit[] = "gpedit";
+  //bleKeyboard.releaseAll();
+
+  // OPEN GPEDIT: (WinKey > type "gpedit" > Enter).
+  WindowsKey(); 
+  delay(1000); // wait for home menu
+  bleKeyboard.write(str_gpedit, sizeof(str_gpedit)); delay(100);
+  EnterKey();
+  delay(2500); // wait for gpedit window
+
+  /*----------------------------------------
+  > GPEDIT Window
+  ------------------------------------------*/
+  for (size_t i = 0; i < 4; i++)
+  {
+    bleKeyboard.write(KEY_DOWN_ARROW); delay(100);
+  }
+  bleKeyboard.releaseAll();
+
+// ...\Administrative Templates 
+//--------------------------------------------*/
+  bleKeyboard.write(KEY_RIGHT_ARROW); delay(100);
+  for (size_t i = 0; i < 10; i++)
+  {
+    bleKeyboard.write(KEY_DOWN_ARROW); delay(100);
+  }
+  bleKeyboard.releaseAll();
+
+  // ...\...\Windows Components
+  //---------------------------------------------*/
+  bleKeyboard.write(KEY_RIGHT_ARROW); delay(100);
+  for (size_t i = 0; i < 9; i++)
+  {
+    bleKeyboard.write(KEY_DOWN_ARROW); delay(100);
+  }
+ // bleKeyboard.releaseAll();
+
+  //  ...\...\...\Bitlocker Drive Encryption 
+  //---------------------------------------------*/
+  // (TAB + Down arrow (8x) + Enter) "Choose driver encryption method"
+  bleKeyboard.write(KEY_TAB); delay(1000); 
+  bleKeyboard.releaseAll();
+  for (size_t i = 0; i < 8; i++)
+  {
+    bleKeyboard.write(KEY_DOWN_ARROW); delay(100);
+  }
+  bleKeyboard.releaseAll();
+
+  //bleKeyboard.write(KEY_RETURN);
+
+}
 
 // =======================================================================================
 //                                    MAIN PROGRAM                            
@@ -180,7 +273,7 @@ void loop()
   // }
 
   long pointerSpeedMultiplier = map(analogRead(POT_SENSOR_PIN_GPIO_39), 0, 4096, 1, maxMouseMoveSpeed);
-  
+
   // =========================
   //          MOUSE
   // =========================
@@ -209,40 +302,50 @@ void loop()
       }
     }
 
-    if (bleMouse.isConnected()) 
+    if (bleKeyboard.isConnected())
     {
-      // if either joystick moved
-      if (mouse.Magnitude() > EPSILON || mouse2.Magnitude() > EPSILON)
-      {
-        // MOUSE SCROLL if both moving. Scroll direction depends on the resultant vector sum of the 2D axes.
-        if (mouse.Magnitude() > EPSILON && mouse2.Magnitude() > EPSILON) {
-          scroll.x = constrain((mouse.x+mouse2.x), -maxMouseScrollSpeed, maxMouseScrollSpeed);
-          scroll.y = constrain((mouse.y+mouse2.y), -maxMouseScrollSpeed, maxMouseScrollSpeed);
-          
-          bleMouse.move(0, 0, scroll.y, scroll.x);
-        }
-        // MOUSE MOVE
-        else {
-          // Sum both vectors since we know only one joystick is moving while one or the other vector is zero.
-          mouse.x = constrain(mouse.x, -maxMouseMoveSpeed, maxMouseMoveSpeed);
-          mouse.y = constrain(mouse.y, -maxMouseMoveSpeed, maxMouseMoveSpeed);
-          mouse2.x = constrain(mouse2.x, -maxMouseMoveSpeed, maxMouseMoveSpeed);
-          mouse2.y = constrain(mouse2.y, -maxMouseMoveSpeed, maxMouseMoveSpeed);
-
-          bleMouse.move((mouse.x+mouse2.x), -(mouse.y+mouse2.y));
-        }
-
-        lastTimeIdle = millis();
-      }
-
-      // JOYSTICK BUTTON PRESS
-      if (mouse.z || mouse2.z) 
-      {
-        bleMouse.click(MOUSE_LEFT);
-        delay(100);
-        lastTimeIdle = millis();
+     if (mouse.z && mouse2.z)
+      { 
+        gpeditMacro(); //run macro
       }
     }
+
+    // if (bleMouse.isConnected()) 
+    // {
+    //   // if either joystick moved
+    //   if (mouse.Magnitude() > EPSILON || mouse2.Magnitude() > EPSILON)
+    //   {
+    //     // MOUSE SCROLL if both moving. Scroll direction depends on the resultant vector sum of the 2D axes.
+    //     if (mouse.Magnitude() > EPSILON && mouse2.Magnitude() > EPSILON) {
+    //       scroll.x = constrain((mouse.x+mouse2.x), -maxMouseScrollSpeed, maxMouseScrollSpeed);
+    //       scroll.y = constrain((mouse.y+mouse2.y), -maxMouseScrollSpeed, maxMouseScrollSpeed);
+          
+    //       bleMouse.move(0, 0, scroll.y, scroll.x);
+    //     }
+    //     // MOUSE MOVE
+    //     else {
+    //       // Sum both vectors since we know only one joystick is moving while one or the other vector is zero.
+    //       mouse.x = constrain(mouse.x, -maxMouseMoveSpeed, maxMouseMoveSpeed);
+    //       mouse.y = constrain(mouse.y, -maxMouseMoveSpeed, maxMouseMoveSpeed);
+    //       mouse2.x = constrain(mouse2.x, -maxMouseMoveSpeed, maxMouseMoveSpeed);
+    //       mouse2.y = constrain(mouse2.y, -maxMouseMoveSpeed, maxMouseMoveSpeed);
+
+    //       bleMouse.move((mouse.x+mouse2.x), -(mouse.y+mouse2.y));
+    //     }
+
+    //     lastTimeIdle = millis();
+    //   }
+
+    //   // JOYSTICK BUTTON PRESS
+    //   if (mouse.z || mouse2.z) 
+    //   {
+    //     bleMouse.click(MOUSE_LEFT);
+    //     delay(100);
+    //     lastTimeIdle = millis();
+    //   }
+
+      
+    // }
   }
 
   oled.display();
