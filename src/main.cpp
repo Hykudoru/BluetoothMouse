@@ -155,20 +155,20 @@ void CloseWindowForceQuit()
   bleKeyboard.releaseAll();
 }
 
-void WindowsSearchRun(const uint8_t *str_search)
+void WindowsSearchRun(const uint8_t *str_search, int size)
 {
   //bleKeyboard.releaseAll();
   // OPEN GPEDIT: (WinKey > type "gpedit" > Enter).
   WindowsKey(); 
   delay(1000); // wait for home menu
-  bleKeyboard.write(str_search, sizeof(str_search)); delay(100);
+  bleKeyboard.write(str_search, size); delay(100);
   EnterKey();
 }
 
 void OpenCMD()
 {
   const uint8_t cmd[] = "cmd";
-  WindowsSearchRun(cmd);
+  WindowsSearchRun(cmd, sizeof(cmd));
 }
 
 void GpeditMacro()
@@ -181,8 +181,8 @@ void GpeditMacro()
   //bleKeyboard.releaseAll();
 
   // OPEN GPEDIT: (WinKey > type "gpedit" > Enter).
-  WindowsSearchRun(gpedit);
-  delay(2500); // wait for gpedit window
+  //WindowsSearchRun(gpedit, sizeof(gpedit));
+  //delay(2500); // wait for gpedit window
 
   /*----------------------------------------
   > GPEDIT Window
@@ -234,7 +234,7 @@ void BitlockerMacro()
   oled.display();
 
   const uint8_t bitlocker[] = "bitlocker";
-  WindowsSearchRun(bitlocker);
+  WindowsSearchRun(bitlocker, sizeof(bitlocker));
   delay(2500); // wait for bitlocker
 
   for (size_t i = 0; i < 9; i++)
@@ -283,14 +283,14 @@ static int prevModeIndex = 0;
 
 void OnClickButton1() 
 {
-  modeIndex = clamp(--modeIndex, 0, 3);
+  modeIndex = clamp(--modeIndex, 0, 1);
   ptrMode = modes[modeIndex];
   Serial.println("Button Pressed");
 }
 
 void OnClickButton2() 
 {
-  modeIndex = clamp(++modeIndex, 0, 3);
+  modeIndex = clamp(++modeIndex, 0, 1);
   ptrMode = modes[modeIndex];
   Serial.println("Button 2 Pressed");
 }
